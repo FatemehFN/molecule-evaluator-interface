@@ -1,12 +1,12 @@
-import os
 import anthropic
 import time
 import json
 import re
-from dotenv import load_dotenv
+
 
 # Claude API key – stored here for development use (move to env var for production)
-CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
+CLAUDE_API_KEY = "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"
+
 client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
 
 def get_synthesis_info(molecule_name):
