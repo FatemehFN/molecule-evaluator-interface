@@ -6,47 +6,31 @@ from claude_utils import (
     get_synthesis_info,
     name_to_smiles,
     get_price_estimates,
-    get_market_trend
+    get_market_trend,
+    ask_claude_about_molecules  
 )
-
-
 import re
 
+# --- Helper Functions ---
 def convert_persian_to_english_digits(s):
     persian_to_english = str.maketrans("۰۱۲۳۴۵۶۷۸۹٬", "0123456789,")
     return s.translate(persian_to_english)
 
-import re
-
 def extract_average_price(price_info):
-    """
-    Extracts the average price from each line of the price_info string.
-    Only looks for two English-style numbers per line, computes their average,
-    and sums them across all lines.
-    """
     total = 0
-
     for line in price_info.splitlines():
-        # Find two numeric values in the line (e.g., 850000 and 1200000)
         match = re.findall(r"(\d[\d,]*)", line)
-
         if len(match) >= 2:
             try:
-                # Remove commas and convert to int
                 low = int(match[0].replace(",", ""))
                 high = int(match[1].replace(",", ""))
                 avg = (low + high) / 2
                 total += avg
             except:
-                continue  # skip lines with conversion issues
-
+                continue
     return round(total)
 
-
-
-
-
-
+# --- Streamlit Layout ---
 st.set_page_config(page_title="Molecule Info Explorer", layout="wide")
 st.title("🧪 Molecule Info Explorer")
 
@@ -56,14 +40,14 @@ Upload a **text file** containing molecule names (one per line) to get their **S
 
 uploaded_file = st.file_uploader("Upload a .txt file with molecule names", type=["txt"])
 
-# Initialize session state to store results
+# --- Session State ---
 if "molecule_data" not in st.session_state:
     st.session_state.molecule_data = []
 
+# --- File Processing ---
 if uploaded_file is not None and not st.session_state.molecule_data:
     molecule_names = [line.decode("utf-8").strip() for line in uploaded_file.readlines()]
     st.markdown(f"📄 Found **{len(molecule_names)}** molecules.")
-
     results = []
 
     for name in molecule_names:
@@ -104,16 +88,15 @@ if uploaded_file is not None and not st.session_state.molecule_data:
                 "Total Price of Raw Materials (Toman)": total_price
             })
 
-    st.session_state.molecule_data = results  # Save to session state
+    st.session_state.molecule_data = results  # Store for later
 
+# --- Display Table ---
 if st.session_state.molecule_data:
     df = pd.DataFrame(st.session_state.molecule_data)
     st.success("✅ Molecule processing complete.")
     st.dataframe(df, use_container_width=True)
 
     st.markdown("### 📈 Market Analysis Options")
-
-    # Option to analyze a single molecule's market trend
     single_name = st.text_input("🔍 Enter a molecule name to view market trends (2023–2027)")
     if st.button("Show Market Trend for This Molecule"):
         if single_name:
@@ -137,9 +120,52 @@ if st.session_state.molecule_data:
                 ax.grid(True)
                 ax.legend()
                 st.pyplot(fig)
-
         else:
             st.warning("Please enter a molecule name.")
-
 else:
     st.info("Please upload a `.txt` file with molecule names.")
+
+
+
+
+# --- 🤖 Claude Chatbot Section ---
+if st.session_state.molecule_data:
+    st.markdown("---")
+    st.subheader("🤖 Ask Claude About Molecules or Synthesis")
+
+    # Chat history state
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+
+    # Format molecule data for Claude context
+    def format_context_chunks(data):
+        chunks = []
+        for mol in data:
+            chunk = f"""Molecule: {mol['Name']}
+SMILES: {mol['SMILES']}
+Formula: {mol['Formula']}
+Molecular Weight: {mol['Molecular Weight']}
+Synthetic Route: {'; '.join(mol['Synthetic Route']) if isinstance(mol['Synthetic Route'], list) else mol['Synthetic Route']}
+Raw Materials: {mol['Raw Materials']}
+Price Range: {mol['Price of Raw Materials']}
+Total Price (Toman): {mol['Total Price of Raw Materials (Toman)']}"""
+            chunks.append(chunk)
+        return chunks
+
+    context_chunks = format_context_chunks(st.session_state.molecule_data)
+
+    # Input area for user question
+    user_question = st.text_input("💬 Ask a question about the molecules, synthesis routes, or raw materials:")
+
+    if st.button("Ask Claude") and user_question:
+        with st.spinner("Claude is thinking..."):
+            answer = ask_claude_about_molecules(user_question, context_chunks)
+            st.session_state.chat_history.append((user_question, answer))
+
+    # Display past Q&A
+    if st.session_state.chat_history:
+        st.markdown("#### 📚 Chat History")
+        for q, a in reversed(st.session_state.chat_history):
+            st.markdown(f"**User:** {q}")
+            st.markdown(f"**Claude:** {a}")
+            st.markdown("---")

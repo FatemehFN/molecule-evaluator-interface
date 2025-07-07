@@ -153,3 +153,28 @@ Respond in this format:
 
     except Exception as e:
         return {}
+    
+
+
+
+
+def ask_claude_about_molecules(user_question, context_chunks, max_chunks=5):
+    context_text = "\n\n".join(context_chunks[:max_chunks])
+    prompt = f"""
+You are a chemistry assistant AI. Use the following data to answer the user's question.
+
+{context_text}
+
+User's Question: {user_question}
+
+Answer:"""
+    try:
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=512,
+            temperature=0.2,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.content[0].text.strip()
+    except Exception as e:
+        return f"❌ Claude failed to answer: {e}"
