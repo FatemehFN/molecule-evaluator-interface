@@ -127,21 +127,18 @@ else:
 
 
 
-
 # --- 🤖 Claude Chatbot Section ---
 if st.session_state.molecule_data:
     st.markdown("---")
     st.subheader("🤖 Ask Claude About Molecules or Synthesis")
 
-    # Chat history state
+    # Initialize chat history as list of message dicts (Claude format)
     if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
-
-    # Format molecule data for Claude context
-    def format_context_chunks(data):
-        chunks = []
-        for mol in data:
-            chunk = f"""Molecule: {mol['Name']}
+        # Format molecule info as part of system prompt
+        def format_context_chunks(data):
+            chunks = []
+            for mol in data:
+                chunk = f"""Molecule: {mol['Name']}
 SMILES: {mol['SMILES']}
 Formula: {mol['Formula']}
 Molecular Weight: {mol['Molecular Weight']}
@@ -149,23 +146,39 @@ Synthetic Route: {'; '.join(mol['Synthetic Route']) if isinstance(mol['Synthetic
 Raw Materials: {mol['Raw Materials']}
 Price Range: {mol['Price of Raw Materials']}
 Total Price (Toman): {mol['Total Price of Raw Materials (Toman)']}"""
-            chunks.append(chunk)
-        return chunks
+                chunks.append(chunk)
+            return chunks
 
-    context_chunks = format_context_chunks(st.session_state.molecule_data)
+        context_chunks = format_context_chunks(st.session_state.molecule_data)
+        molecule_context = "\n\n".join(context_chunks)
 
-    # Input area for user question
+        system_prompt = (
+            "You are a chemistry assistant AI that helps analyze molecule information, synthesis routes, and market trends.\n\n"
+            f"Here is the molecule context:\n\n{molecule_context}"
+        )
+
+        st.session_state.chat_history = [{"role": "system", "content": system_prompt}]
+
+    # Input field for user questions
     user_question = st.text_input("💬 Ask a question about the molecules, synthesis routes, or raw materials:")
 
     if st.button("Ask Claude") and user_question:
-        with st.spinner("Claude is thinking..."):
-            answer = ask_claude_about_molecules(user_question, context_chunks)
-            st.session_state.chat_history.append((user_question, answer))
+        # Add user message to history
+        st.session_state.chat_history.append({"role": "user", "content": user_question})
 
-    # Display past Q&A
+        # Call Claude API with full chat history
+        with st.spinner("Claude is thinking..."):
+            answer = ask_claude_about_molecules(st.session_state.chat_history)
+
+        # Add assistant reply to history
+        st.session_state.chat_history.append({"role": "assistant", "content": answer})
+
+    # Display chat history
     if st.session_state.chat_history:
         st.markdown("#### 📚 Chat History")
-        for q, a in reversed(st.session_state.chat_history):
-            st.markdown(f"**User:** {q}")
-            st.markdown(f"**Claude:** {a}")
+        for msg in reversed(st.session_state.chat_history[1:]):  # skip system prompt
+            if msg["role"] == "user":
+                st.markdown(f"**User:** {msg['content']}")
+            elif msg["role"] == "assistant":
+                st.markdown(f"**Claude:** {msg['content']}")
             st.markdown("---")

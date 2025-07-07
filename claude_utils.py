@@ -158,23 +158,29 @@ Respond in this format:
 
 
 
-def ask_claude_about_molecules(user_question, context_chunks, max_chunks=5):
-    context_text = "\n\n".join(context_chunks[:max_chunks])
-    prompt = f"""
-You are a chemistry assistant AI. Use the following data to answer the user's question.
-
-{context_text}
-
-User's Question: {user_question}
-
-Answer:"""
+def ask_claude_about_molecules(messages):
+    """
+    Sends a full conversation history to Claude and returns the assistant's reply.
+    Claude uses a separate `system` parameter instead of a 'system' role in messages.
+    The first message must not have role 'system'.
+    """
     try:
+        # Extract system prompt if it's present in the first message
+        if messages[0].get("role") == "system":
+            system_prompt = messages[0]["content"]
+            user_messages = messages[1:]  # skip system
+        else:
+            system_prompt = "You are a helpful chemistry assistant."
+            user_messages = messages
+
         response = client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=512,
             temperature=0.2,
-            messages=[{"role": "user", "content": prompt}]
+            system=system_prompt,
+            messages=user_messages
         )
         return response.content[0].text.strip()
+
     except Exception as e:
         return f"❌ Claude failed to answer: {e}"
