@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoleculeAI - Fast Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .speed-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border 0.3s;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .molecule-result {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #667eea;
+        }
+
+        .molecule-result h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+
+        .property {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .property:last-child {
+            border-bottom: none;
+        }
+
+        .property-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .property-value {
+            color: #333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #c33;
+        }
+
+        .success {
+            background: #efe;
+            color: #3c3;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #3c3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧬 MoleculeAI</h1>
+            <p>Fast & Accurate Molecule Analysis</p>
+            <span class="speed-badge">⚡ 3-4x Faster | REST API</span>
+        </div>
+
+        <div class="card">
+            <h2>📊 Analyze Molecules</h2>
+            <div class="input-group">
+                <label for="moleculeName">Molecule Name:</label>
+                <input type="text" id="moleculeName" placeholder="e.g., Ascorbic acid" />
+            </div>
+            <button onclick="analyzeSingle()">🚀 Analyze Single</button>
+
+            <hr style="margin: 2rem 0; border: 1px solid #e0e0e0;" />
+
+            <div class="input-group">
+                <label for="moleculeList">Or Batch Analysis (one per line):</label>
+                <textarea id="moleculeList" rows="5" placeholder="Ascorbic acid&#10;Retinol&#10;Niacinamide"></textarea>
+            </div>
+            <button onclick="analyzeBatch()">🚀 Analyze Batch</button>
+        </div>
+
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        async function analyzeSingle() {
+            const name = document.getElementById('moleculeName').value.trim();
+            if (!name) {
+                alert('Please enter a molecule name');
+                return;
+            }
+
+            showLoading('Analyzing ' + name + '...');
+
+            try {
+                const response = await fetch(`${API_URL}/api/analyze`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name })
+                });
+
+                const data = await response.json();
+                displayResults([data]);
+            } catch (error) {
+                showError('Error: ' + error.message);
+            }
+        }
+
+        async function analyzeBatch() {
+            const text = document.getElementById('moleculeList').value.trim();
+            if (!text) {
+                alert('Please enter molecule names');
+                return;
+            }
+
+            const molecules = text.split('\n').filter(m => m.trim());
+            showLoading(`Analyzing ${molecules.length} molecules...`);
+
+            try {
+                const response = await fetch(`${API_URL}/api/batch`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ molecules })
+                });
+
+                const data = await response.json();
+                displayBatchResults(data);
+            } catch (error) {
+                showError('Error: ' + error.message);
+            }
+        }
+
+        function showLoading(message) {
+            const results = document.getElementById('results');
+            results.innerHTML = `
+                <div class="card loading">
+                    <div class="spinner"></div>
+                    <div>${message}</div>
+                </div>
+            `;
+            results.classList.add('show');
+        }
+
+        function showError(message) {
+            const results = document.getElementById('results');
+            results.innerHTML = `<div class="card error">${message}</div>`;
+            results.classList.add('show');
+        }
+
+        function displayResults(results) {
+            const container = document.getElementById('results');
+            let html = '<div class="card"><h2>✅ Analysis Results</h2>';
+
+            results.forEach(result => {
+                html += `
+                    <div class="molecule-result">
+                        <h3>${result.molecule_name}</h3>
+                        <div class="property">
+                            <div class="property-label">Status:</div>
+                            <div class="property-value">${result.status === 'success' ? '✅ Success' : '❌ Failed'}</div>
+                        </div>
+                        ${result.smiles ? `
+                        <div class="property">
+                            <div class="property-label">SMILES:</div>
+                            <div class="property-value"><code>${result.smiles}</code></div>
+                        </div>` : ''}
+                        ${result.properties ? `
+                        <div class="property">
+                            <div class="property-label">Formula:</div>
+                            <div class="property-value">${result.properties['Molecular Formula']}</div>
+                        </div>
+                        <div class="property">
+                            <div class="property-label">Molecular Weight:</div>
+                            <div class="property-value">${result.properties['Molecular Weight']} g/mol</div>
+                        </div>
+                        <div class="property">
+                            <div class="property-label">LogP:</div>
+                            <div class="property-value">${result.properties['LogP']}</div>
+                        </div>` : ''}
+                        ${result.synthesis ? `
+                        <div class="property">
+                            <div class="property-label">Complexity:</div>
+                            <div class="property-value">${result.synthesis.complexity}</div>
+                        </div>
+                        <div class="property">
+                            <div class="property-label">Raw Materials:</div>
+                            <div class="property-value">${result.synthesis.raw_materials.join(', ')}</div>
+                        </div>` : ''}
+                        ${result.analysis_time ? `
+                        <div class="property">
+                            <div class="property-label">Analysis Time:</div>
+                            <div class="property-value">${result.analysis_time.toFixed(2)} seconds</div>
+                        </div>` : ''}
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+            container.classList.add('show');
+        }
+
+        function displayBatchResults(data) {
+            const container = document.getElementById('results');
+            let html = `
+                <div class="card">
+                    <h2>✅ Batch Analysis Complete</h2>
+                    <div class="success">
+                        Analyzed ${data.total} molecules in ${data.total_time.toFixed(2)} seconds<br>
+                        Successful: ${data.successful} | Failed: ${data.failed}
+                    </div>
+                </div>
+            `;
+
+            displayResults(data.results);
+        }
+    </script>
+</body>
+</html>
